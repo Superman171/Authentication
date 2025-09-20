@@ -2,6 +2,7 @@ import express from "express";
 import { dbConnection } from "./db/dbConnection.js";
 import { registerController, loginController } from "./controller/userController.js";
 import router from "./route/routes.js";
+import cookieParser from "cookie-parser";
 const app = express();
 import dotenv from "dotenv";
 dotenv.config();

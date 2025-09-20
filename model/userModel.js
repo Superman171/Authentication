@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";  
 
+
 const createUserModel=(sequelize)=>{
     const User = sequelize.define("User",{
         id:{
@@ -23,12 +24,30 @@ const createUserModel=(sequelize)=>{
             allowNull:false,
             unique:true
         },
-        refreshtoken:{
-            type:DataTypes.TEXT,
+        verificationToken:{
+
+            type:DataTypes.STRING,
+            allowNull:true
+        },
+        isVerified:{
+            type:DataTypes.BOOLEAN,
+            defaultValue: false
+        },
+        resetPasswordToken:{
+            type:DataTypes.STRING,
+            allowNull:true
+        },
+        resetPasswordExpires:{
+            type:DataTypes.DATE,
             allowNull:true
         }
-    });
+    },
+        {
+            timesstamps:true
+
+        });
     return User;
 }
+
 
 export default createUserModel;
