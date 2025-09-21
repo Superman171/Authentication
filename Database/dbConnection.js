@@ -1,10 +1,12 @@
 import { Sequelize } from 'sequelize';
 import createUserModel from '../model/userModel.js';
 
+//SETTING UP DATABASE WITH SEQUELIZE
+
 let User=null;
 export const dbConnection = async (database, username, password) => {
 
-    const sequelize = new Sequelize('auth', 'postgres', 'shambhu', {
+    const sequelize = new Sequelize('auth', 'postgres', 'NimbusOne', {
         host: 'localhost',
         dialect: 'postgres'
     });

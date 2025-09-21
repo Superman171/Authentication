@@ -1,16 +1,18 @@
 //controller used for writing logic 
-import { where } from "sequelize";
+import { Op, where } from "sequelize";
 import { User } from "../Database/dbConnection.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
+import { text } from "stream/consumers";
 
-
+//USER REGISTRATION 
 const registerController = async (req, res) => {
-    try {
-        const { username, email, password } = req.body;
-
+    //creating constants
+    const { username, email, password } = req.body;
+    
+    //checking the fields
         if (!username || !email || !password) {
 
             return res.status(400).json({
@@ -19,20 +21,11 @@ const registerController = async (req, res) => {
             });
         } else if (!email.includes("@") || !email.includes(".")) {
             return res.status(400).json({
-
                 message: "Invalid email format"
-
             })
         }
-    }
-    catch (e) {
-
-        return res.status(400).json({
-            message: "Server Down",
-            error
-        })
-    }
-
+    
+    
     try {
 
         const existUser = await User.findOne({ where: { email } });
@@ -53,7 +46,7 @@ const registerController = async (req, res) => {
             password: hashedPass
         });
 
-        console.log("New user created:", newuser);
+        console.log("New user created:", newuser.toJSON());
 
         if (!newuser) {
             return res.status(400).json({
@@ -62,7 +55,8 @@ const registerController = async (req, res) => {
         }
 
         const ver_token = crypto.randomBytes(32).toString("hex");
-        newuser.verficationToken = ver_token;
+        // console.log(ver_token);
+        newuser.verificationToken = ver_token;
         await newuser.save();
 
         // send verification email
@@ -74,14 +68,14 @@ const registerController = async (req, res) => {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS
             }
-        })
+        });
 
         const mailOptions = {
-            from: process.env.SMTP_USER,
+            from: process.env.SMTP_SEND_EMAIL,
             to: newuser.email,
             subject: "Email Verification",
-            html: `<p>Click <a href="${process.env.BASE_URL}/verify/${ver_token}">here</a> to verify your email.</p>`
-        }
+            text: `<p>Click ${process.env.BASE_URL}/verify/${ver_token}here to verify your email.</p>`
+        };
         await transporter.sendMail(mailOptions)
         return res.status(201).json({
             message: "Please verify your email to login",
@@ -98,11 +92,12 @@ const registerController = async (req, res) => {
     }
 };
 
+//USER VERIFICATION
 const User_verified = async (req, res) => {
     const { ver_token } = req.params;
     try {
         const user = await User.findOne({
-            where: { verficationToken: ver_token }
+            where: { verificationToken: ver_token }
         })
 
         if (!user) {
@@ -111,8 +106,8 @@ const User_verified = async (req, res) => {
             });
         }
 
-        user.isverified = true;
-        user.verficationToken = undefined;
+        user.isVerified = true;
+        user.verificationToken = null;
         await user.save();
 
         return res.status(200).json({
@@ -128,6 +123,7 @@ const User_verified = async (req, res) => {
     }
 };
 
+//USER LOGIN
 const loginController = async (req, res) => {
     try {
         const { username, password, email } = req.body;
@@ -138,7 +134,7 @@ const loginController = async (req, res) => {
             if (!isValid) {
                 return res.status(401).json("Credential Invalid");
             }
-            if (!exist.isverified) {
+            if (!exist.isVerified) {
                 return res.status(401).json({
                     message: "Please verify your email to login",
                     success: false
@@ -161,7 +157,7 @@ const loginController = async (req, res) => {
                 maxAge: 24 * 60 * 60 * 1000 // 1 day
             }
 
-            res.cookies("Token", Jwt_token, cookiesOptions);
+            res.cookie("Token", Jwt_token, cookiesOptions);
 
             return res.status(200).json({
                 message: "Login Successful",
@@ -180,14 +176,17 @@ const loginController = async (req, res) => {
         return res.status(500).json("Internal Server Problem");
     }
 };
+//USER LOGOUTT
 const logoutController = (req, res) => {
 
-    res.clearCookie("token");
+    res.clearCookie("ver_token");
     return res.status(200).json({
         message: "Logout Successful",
         success: true
     })
 };
+
+//USER FORGOT_PASSWORD
 const forgetPasswordController = async (req, res) => {
 
     const { email } = req.body;
@@ -201,8 +200,8 @@ const forgetPasswordController = async (req, res) => {
             });
         }
 
-        const rest_token = crypto.hash(32).toString("hex");
-        user.resetPasswordToken = rest_token;
+        const reset_token = crypto.randomBytes(32).toString("hex");
+        user.resetPasswordToken = reset_token;
         user.resetPasswordExpires = Date.now() + 3600000; //1 hour
         await user.save();
 
@@ -220,7 +219,7 @@ const forgetPasswordController = async (req, res) => {
             from: process.env.SMTP_USER,
             to: user.email,
             subject: "Reset Password",
-            html: `<p>Click <a href="${process.env.BASE_URL}/reset-password/${rest_token}">here</a> to reset your password. This link is valid for 1 hour.</p>`
+            text: `<p>Click ${process.env.BASE_URL}/resetPassword/${reset_token} here to reset your password. This link is valid for 1 hour.</p>`
         }
         await transporter.sendMail(mailOptions);
         return res.status(200).json({
@@ -236,40 +235,48 @@ const forgetPasswordController = async (req, res) => {
         });
     }
 };
+
+//USER RESET_PASSWORD
 const resetPasswordController = async (req, res) => {
-    const { reset_token } = req.params;
-    const { new_password } = req.body;
+  const { reset_token } = req.params;
+  const { new_password } = req.body;
 
-    try {
-        const user = await User.findOne({
-            where: {
-                resetPasswordToken: reset_token,
-                resetPasswordExpires: { $gt: Date.now() }
-            }
-        });
+  try {
+    const user = await User.findOne({
+      where: {
+        resetPasswordToken: reset_token,
+        resetPasswordExpires: { [Op.gt]: new Date() } // <-- key fix
+      }
+    });
 
-        if (!user) {
-            return res.status(400).json({
-                message: "Invalid or expired reset token",
-                success: false
-            });
-        }
-        const hashedPass = await bcrypt.hash(new_password, 10);
-        user.password = hashedPass;
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpires = undefined;
-        await user.save();
-
-    } catch (error) {
-        console.error("Error resetting password", error);
-        return res.status(500).json({
-            message: "Internal Server Error",
-            success: false
-        });
+    if (!user) {
+      return res.status(400).json({
+        message: "Invalid or expired reset token",
+        success: false
+      });
     }
+
+    user.password = await bcrypt.hash(new_password, 10);
+    user.resetPasswordToken = null;               // <-- null instead of undefined
+    user.resetPasswordExpires = null;
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Password reset successful",
+      success: true
+    });
+
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+      success: false
+    });
+  }
 };
 
-
+//EXPORTING ALL 
 export {
     registerController,
     User_verified,

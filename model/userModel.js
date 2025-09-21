@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";  
 
+//CREATING SCHEMA FOR DB
 
 const createUserModel=(sequelize)=>{
     const User = sequelize.define("User",{
@@ -49,5 +50,5 @@ const createUserModel=(sequelize)=>{
     return User;
 }
 
-
+//EXPORTING MODEL
 export default createUserModel;
