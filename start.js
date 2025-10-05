@@ -1,6 +1,6 @@
 //MAIN FILE
 import express from "express";
-import { dbConnection } from "./Database/dbConnection.js";
+import { dbConnection } from "./Database/db.connection.js";
 import router from "./route/routes.js";
 import cookieParser from 'cookie-parser';
 import dotenv from "dotenv";
@@ -24,7 +24,7 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));   
-app.use("/api",router);
+app.use("/api/v1/users",router);
 
 //Hosting Port
 app.listen(process.env.PORT,()=>{
